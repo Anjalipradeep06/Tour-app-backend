@@ -29,6 +29,19 @@ const protect = async (
         decoded.id
       ).select("-password");
 
+      if (!req.user) {
+        return res.status(401).json({
+          message: "Not authorized",
+        });
+      }
+
+      if (req.user.isDeleted) {
+        return res.status(401).json({
+          message:
+            "This account has been deactivated",
+        });
+      }
+
       next();
     } catch (error) {
       return res.status(401).json({

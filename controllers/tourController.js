@@ -48,10 +48,13 @@ const getAllTours = async (req, res) => {
     }
 
     // 🌍 DESTINATION FILTER
-    if (country || continent) {
-      filter["destination"] = {};
-    }
+    if (country) {
+  filter.country = country;
+}
 
+if (continent) {
+  filter.continent = continent;
+}
     // 💰 PRICE RANGE
     if (minPrice || maxPrice) {
       filter.price = {};

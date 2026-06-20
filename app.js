@@ -13,6 +13,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import destinationRoutes from "./routes/destinationRoutes.js"
+import adminUserRoutes from "./routes/adminUserRoutes.js";
 
 
 const app = express();
@@ -39,6 +40,7 @@ app.use(
   "/api/destinations",
   destinationRoutes
 );
+app.use("/api/admin/users", adminUserRoutes);
 // Health Check
 app.get("/", (req, res) => {
   res.status(200).json({

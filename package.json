@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node --env-file=.env ./bin/www"
-  
- },
+  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
@@ -16,7 +15,6 @@
     "dotenv": "^17.4.2",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
-    "jade": "~1.11.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.0",
     "morgan": "~1.9.1",

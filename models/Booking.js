@@ -39,7 +39,7 @@ const bookingSchema = new mongoose.Schema(
         "cancelled",
         "completed",
       ],
-      default: "confirmed",
+      default: "pending",
     },
 
     specialRequirements: {
