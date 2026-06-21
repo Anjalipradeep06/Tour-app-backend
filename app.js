@@ -17,10 +17,14 @@ import adminUserRoutes from "./routes/adminUserRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://tour-app-frontend-wheat.vercel.app",
+  "https://tour-app-frontend-git-main-anjalipradeep1214-6162s-projects.vercel.app",
+];
 
 // Middleware
 app.use(logger("dev"));
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -29,7 +33,13 @@ app.use(express.static(path.join(process.cwd(), "public")));
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
     credentials: true,
   })
 );
