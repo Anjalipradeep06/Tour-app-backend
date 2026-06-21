@@ -3,6 +3,10 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 const generateToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is missing in .env");
+  }
+
   return jwt.sign(
     { id },
     process.env.JWT_SECRET,
@@ -32,7 +36,10 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
 
     const user = await User.create({
       name,
@@ -41,18 +48,19 @@ const registerUser = async (req, res) => {
       role,
     });
 
-    // Remove password before sending response
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "User registered successfully",
       user: userResponse,
       token: generateToken(user._id),
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("REGISTER ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -70,7 +78,10 @@ const loginUser = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email,
+      isDeleted: false,
+    }).select("+password");
 
     if (!user) {
       return res.status(401).json({
@@ -79,7 +90,10 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
 
     if (!isMatch) {
       return res.status(401).json({
@@ -88,18 +102,22 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Remove password before sending response
+    user.lastLogin = new Date();
+    await user.save();
+
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Logged in successfully",
       user: userResponse,
       token: generateToken(user._id),
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

@@ -27,6 +27,12 @@ app.use(cookieParser());
 
 app.use(express.static(path.join(process.cwd(), "public")));
 
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
 // Routes
 app.get("/api/test", (req, res) => {
   res.json({
