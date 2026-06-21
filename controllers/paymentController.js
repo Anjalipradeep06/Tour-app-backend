@@ -2,17 +2,26 @@ import Stripe from "stripe";
 import Booking from "../models/Booking.js";
 import { sendEmail } from "../services/emailService.js";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is missing");
-}
+/* ----------------------------------------
+   Safe Stripe initialization (lazy load)
+-----------------------------------------*/
+const getStripe = () => {
+  const key = process.env.STRIPE_SECRET_KEY;
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  if (!key) {
+    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
+  }
 
-/* -----------------------------
-   Create Stripe Session
-------------------------------*/
+  return new Stripe(key);
+};
+
+/* ----------------------------------------
+   Create Stripe Checkout Session
+-----------------------------------------*/
 const createStripeSession = async (req, res) => {
   try {
+    const stripe = getStripe();
+
     const booking = await Booking.findById(req.params.bookingId).populate(
       "tour"
     );
@@ -60,6 +69,8 @@ const createStripeSession = async (req, res) => {
       url: session.url,
     });
   } catch (error) {
+    console.error("Stripe session error:", error.message);
+
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to create Stripe session",
@@ -67,9 +78,9 @@ const createStripeSession = async (req, res) => {
   }
 };
 
-/* -----------------------------
+/* ----------------------------------------
    Verify Stripe Payment
-------------------------------*/
+-----------------------------------------*/
 const verifyStripePayment = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId)
@@ -90,10 +101,11 @@ const verifyStripePayment = async (req, res) => {
       });
     }
 
+    // Mark as paid
     booking.paymentStatus = "paid";
     await booking.save();
 
-    // Email should NOT block payment success
+    // Send email (non-blocking)
     try {
       await sendEmail({
         to: booking.user.email,
@@ -120,6 +132,8 @@ Thank you for booking with us!`,
       booking,
     });
   } catch (error) {
+    console.error("Verify payment error:", error.message);
+
     return res.status(500).json({
       success: false,
       message: error.message || "Payment verification failed",
