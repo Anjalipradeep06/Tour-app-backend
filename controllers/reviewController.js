@@ -12,16 +12,12 @@ const updateTourRatings = async (tourId) => {
 
   const averageRating =
     totalReviews > 0
-      ? (
-          reviews.reduce(
-            (sum, review) => sum + review.rating,
-            0
-          ) / totalReviews
-        ).toFixed(1)
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) /
+        totalReviews
       : 0;
 
   await Tour.findByIdAndUpdate(tourId, {
-    averageRating: Number(averageRating),
+    averageRating: Number(averageRating.toFixed(1)),
     totalReviews,
   });
 };
@@ -65,8 +61,7 @@ const addReview = async (req, res) => {
     if (!booking) {
       return res.status(403).json({
         success: false,
-        message:
-          "You can review only after completing the tour",
+        message: "You can review only after completing the tour",
       });
     }
 
@@ -78,8 +73,7 @@ const addReview = async (req, res) => {
     if (existingReview) {
       return res.status(400).json({
         success: false,
-        message:
-          "You have already reviewed this tour",
+        message: "You have already reviewed this tour",
       });
     }
 
@@ -92,15 +86,15 @@ const addReview = async (req, res) => {
 
     await updateTourRatings(tour);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Review added successfully",
       review,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to add review",
     });
   }
 };
@@ -116,15 +110,16 @@ const getTourReviews = async (req, res) => {
       .populate("user", "name")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Reviews fetched successfully",
       count: reviews.length,
       reviews,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch reviews",
     });
   }
 };
@@ -134,9 +129,7 @@ const getTourReviews = async (req, res) => {
 ---------------------------------- */
 const deleteReview = async (req, res) => {
   try {
-    const review = await Review.findById(
-      req.params.id
-    );
+    const review = await Review.findById(req.params.id);
 
     if (!review) {
       return res.status(404).json({
@@ -146,40 +139,32 @@ const deleteReview = async (req, res) => {
     }
 
     const isOwner =
-      review.user.toString() ===
-      req.user._id.toString();
+      review.user.toString() === req.user._id.toString();
 
-    const isAdmin =
-      req.user.role === "admin";
+    const isAdmin = req.user.role === "admin";
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
-        message:
-          "Not authorized to delete this review",
+        message: "Not authorized to delete this review",
       });
     }
 
     const tourId = review.tour;
 
     await review.deleteOne();
-
     await updateTourRatings(tourId);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Review deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to delete review",
     });
   }
 };
 
-export {
-  addReview,
-  getTourReviews,
-  deleteReview,
-};
+export { addReview, getTourReviews, deleteReview };

@@ -13,29 +13,26 @@ const generateToken = (id) => {
 };
 
 const registerUser = async (req, res) => {
-  const { name, email, password, role } =
-    req.body;
+  const { name, email, password, role } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({
-      message:
-        "name, email, password is required",
+      success: false,
+      message: "Name, email and password are required",
     });
   }
 
   try {
-    const userExists = await User.findOne({
-      email,
-    });
+    const userExists = await User.findOne({ email });
 
     if (userExists) {
       return res.status(400).json({
+        success: false,
         message: "User already exists",
       });
     }
 
-    const hashedPassword =
-      await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
@@ -44,13 +41,19 @@ const registerUser = async (req, res) => {
       role,
     });
 
+    // Remove password before sending response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     res.status(201).json({
+      success: true,
       message: "User registered successfully",
-      user,
+      user: userResponse,
       token: generateToken(user._id),
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: error.message,
     });
   }
@@ -59,38 +62,45 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
-  try {
-    const user = await User.findOne({
-      email,
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and password are required",
     });
+  }
+
+  try {
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(401).json({
-        message:
-          "Invalid email or password",
+        success: false,
+        message: "Invalid email or password",
       });
     }
 
-    const isMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({
-        message:
-          "Invalid email or password",
+        success: false,
+        message: "Invalid email or password",
       });
     }
 
+    // Remove password before sending response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     res.status(200).json({
+      success: true,
       message: "Logged in successfully",
-      user,
+      user: userResponse,
       token: generateToken(user._id),
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: error.message,
     });
   }

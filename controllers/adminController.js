@@ -57,7 +57,7 @@ const getDashboardStats = async (req, res) => {
 
     res.status(200).json({
       success: true,
-
+      message: "Dashboard statistics fetched successfully",
       stats: {
         users,
         tours,
@@ -66,19 +66,22 @@ const getDashboardStats = async (req, res) => {
         confirmedBookings,
         completedBookings,
         cancelledBookings,
-        totalRevenue:
-          revenue[0]?.totalRevenue || 0,
+        totalRevenue: revenue[0]?.totalRevenue || 0,
       },
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch dashboard statistics",
     });
   }
 };
 
-
+/* ---------------------------------
+   Get All Bookings
+---------------------------------- */
 const getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.find()
@@ -88,22 +91,24 @@ const getAllBookings = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: "Bookings fetched successfully",
       count: bookings.length,
       bookings,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch bookings",
     });
   }
 };
 
-
-const getPendingBookings = async (
-  req,
-  res
-) => {
+/* ---------------------------------
+   Get Pending Bookings
+---------------------------------- */
+const getPendingBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({
       status: "pending",
@@ -114,29 +119,28 @@ const getPendingBookings = async (
 
     res.status(200).json({
       success: true,
+      message: "Pending bookings fetched successfully",
       count: bookings.length,
       bookings,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch pending bookings",
     });
   }
 };
 
-
-const approveBooking = async (
-  req,
-  res
-) => {
+/* ---------------------------------
+   Approve Booking
+---------------------------------- */
+const approveBooking = async (req, res) => {
   try {
-    const booking =
-      await Booking.findById(
-        req.params.id
-      )
-        .populate("user")
-        .populate("tour");
+    const booking = await Booking.findById(req.params.id)
+      .populate("user")
+      .populate("tour");
 
     if (!booking) {
       return res.status(404).json({
@@ -148,29 +152,27 @@ const approveBooking = async (
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only pending bookings can be approved",
+        message: "Only pending bookings can be approved",
       });
     }
 
-    const tour = await Tour.findById(
-      booking.tour._id
-    );
+    const tour = await Tour.findById(booking.tour._id);
 
-    if (
-      tour.availableSlots <
-      booking.participants
-    ) {
+    if (!tour) {
+      return res.status(404).json({
+        success: false,
+        message: "Tour not found",
+      });
+    }
+
+    if (tour.availableSlots < booking.participants) {
       return res.status(400).json({
         success: false,
-        message:
-          "Not enough slots available",
+        message: "Not enough slots available",
       });
     }
 
-    tour.availableSlots -=
-      booking.participants;
-
+    tour.availableSlots -= booking.participants;
     await tour.save();
 
     booking.status = "confirmed";
@@ -179,38 +181,40 @@ const approveBooking = async (
 
     await booking.save();
 
-    await sendEmail({
-      to: booking.user.email,
-      subject: "Booking Approved 🎉",
-      text: `Your booking for "${booking.tour.title}" has been approved.`,
-    });
+    // Email should not stop booking approval
+    try {
+      await sendEmail({
+        to: booking.user.email,
+        subject: "Booking Approved 🎉",
+        text: `Your booking for "${booking.tour.title}" has been approved.`,
+      });
+    } catch (emailError) {
+      console.error("Email Error:", emailError.message);
+    }
 
     res.status(200).json({
       success: true,
-      message:
-        "Booking approved successfully",
+      message: "Booking approved successfully",
       booking,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to approve booking",
     });
   }
 };
 
-
-const rejectBooking = async (
-  req,
-  res
-) => {
+/* ---------------------------------
+   Reject Booking
+---------------------------------- */
+const rejectBooking = async (req, res) => {
   try {
-    const booking =
-      await Booking.findById(
-        req.params.id
-      )
-        .populate("user")
-        .populate("tour");
+    const booking = await Booking.findById(req.params.id)
+      .populate("user")
+      .populate("tour");
 
     if (!booking) {
       return res.status(404).json({
@@ -222,31 +226,35 @@ const rejectBooking = async (
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only pending bookings can be rejected",
+        message: "Only pending bookings can be rejected",
       });
     }
 
     booking.status = "cancelled";
-
     await booking.save();
 
-    await sendEmail({
-      to: booking.user.email,
-      subject: "Booking Rejected",
-      text: `Unfortunately, your booking for "${booking.tour.title}" could not be approved.`,
-    });
+    // Email should not stop booking rejection
+    try {
+      await sendEmail({
+        to: booking.user.email,
+        subject: "Booking Rejected",
+        text: `Unfortunately, your booking for "${booking.tour.title}" could not be approved.`,
+      });
+    } catch (emailError) {
+      console.error("Email Error:", emailError.message);
+    }
 
     res.status(200).json({
       success: true,
-      message:
-        "Booking rejected successfully",
+      message: "Booking rejected successfully",
       booking,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to reject booking",
     });
   }
 };

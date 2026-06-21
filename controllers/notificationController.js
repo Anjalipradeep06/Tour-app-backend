@@ -1,5 +1,8 @@
 import Notification from "../models/Notification.js";
 
+/* -----------------------------
+   Get Notifications
+------------------------------*/
 export const getNotifications = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -18,6 +21,7 @@ export const getNotifications = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Notifications fetched successfully",
       count: notifications.length,
       total,
       page,
@@ -26,11 +30,14 @@ export const getNotifications = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch notifications",
     });
   }
 };
 
+/* -----------------------------
+   Get Unread Count
+------------------------------*/
 export const getUnreadCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({
@@ -40,16 +47,20 @@ export const getUnreadCount = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Unread count fetched successfully",
       unreadCount: count,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch unread count",
     });
   }
 };
 
+/* -----------------------------
+   Mark Single Notification as Read
+------------------------------*/
 export const markAsRead = async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
@@ -70,17 +81,20 @@ export const markAsRead = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Marked as read",
+      message: "Notification marked as read",
       notification,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to update notification",
     });
   }
 };
 
+/* -----------------------------
+   Mark All As Read
+------------------------------*/
 export const markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
@@ -95,7 +109,7 @@ export const markAllAsRead = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to update notifications",
     });
   }
 };

@@ -6,12 +6,14 @@ const bookingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     tour: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tour",
       required: true,
+      index: true,
     },
 
     bookingDate: {
@@ -33,13 +35,9 @@ const bookingSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "confirmed",
-        "cancelled",
-        "completed",
-      ],
+      enum: ["pending", "confirmed", "cancelled", "completed"],
       default: "pending",
+      index: true,
     },
 
     specialRequirements: {
@@ -47,21 +45,18 @@ const bookingSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
-paymentMethod: {
-  type: String,
-  enum: ["cod", "stripe"],
-  default: "cod",
-},
+
+    paymentMethod: {
+      type: String,
+      enum: ["cod", "stripe"],
+      default: "cod",
+    },
+
     paymentStatus: {
       type: String,
-      enum: [
-        "unpaid",
-        "pending",
-        "paid",
-        "failed",
-        "refunded",
-      ],
-      default: "pending",
+      enum: ["unpaid", "paid", "failed", "refunded"],
+      default: "unpaid",
+      index: true,
     },
   },
   {
@@ -69,7 +64,10 @@ paymentMethod: {
   }
 );
 
-export default mongoose.model(
-  "Booking",
-  bookingSchema
-);
+/* -----------------------------
+   Indexes for faster queries
+------------------------------*/
+bookingSchema.index({ user: 1, createdAt: -1 });
+bookingSchema.index({ tour: 1, status: 1 });
+
+export default mongoose.model("Booking", bookingSchema);

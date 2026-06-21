@@ -13,19 +13,16 @@ import { createNotification } from "../utils/notificationHelper.js";
 /* -----------------------------
    Helper: check modifiable
 ------------------------------*/
-const isModifiable = (booking) => booking.status === "confirmed";
+const isModifiable = (booking) =>
+  ["confirmed", "pending"].includes(booking.status);
 
 /* -----------------------------
    Create Booking
 ------------------------------*/
 const createBooking = async (req, res) => {
   try {
-    const {
-      tourId,
-      bookingDate,
-      participants,
-      paymentMethod = "cod",
-    } = req.body;
+    const { tourId, bookingDate, participants, paymentMethod = "cod" } =
+      req.body;
 
     if (!tourId || !bookingDate || !participants) {
       return res.status(400).json({
@@ -57,6 +54,10 @@ const createBooking = async (req, res) => {
       });
     }
 
+    // Reserve slots immediately (safer)
+    tour.availableSlots -= participants;
+    await tour.save();
+
     const totalAmount = tour.price * participants;
 
     const booking = await Booking.create({
@@ -67,8 +68,10 @@ const createBooking = async (req, res) => {
       paymentMethod,
       totalAmount,
       status: "pending",
+      paymentStatus: "pending",
     });
 
+    // Email (non-blocking)
     sendEmail({
       to: req.user.email,
       ...bookingConfirmedEmail(tour, booking),
@@ -84,7 +87,7 @@ const createBooking = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Booking confirmed successfully",
+      message: "Booking created successfully",
       booking,
     });
   } catch (error) {
@@ -111,6 +114,7 @@ const getUserBookings = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "User bookings fetched successfully",
       count: bookings.length,
       bookings,
     });
@@ -144,6 +148,7 @@ const getBookingById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Booking fetched successfully",
       booking,
     });
   } catch (error) {
@@ -176,24 +181,34 @@ const updateBooking = async (req, res) => {
     if (!isModifiable(booking)) {
       return res.status(400).json({
         success: false,
-        message: "Only confirmed bookings can be updated",
+        message: "Booking cannot be updated in current status",
       });
     }
 
     const tour = await Tour.findById(booking.tour);
 
-    tour.availableSlots += booking.participants;
+    if (!tour) {
+      return res.status(404).json({
+        success: false,
+        message: "Tour not found",
+      });
+    }
 
     const newParticipants = participants || booking.participants;
 
-    if (tour.availableSlots < newParticipants) {
-      tour.availableSlots -= booking.participants;
+    const diff = newParticipants - booking.participants;
 
+    // if increasing participants, check availability
+    if (diff > 0 && tour.availableSlots < diff) {
       return res.status(400).json({
         success: false,
         message: "Not enough slots available for update",
       });
     }
+
+    // restore old slots then apply diff
+    tour.availableSlots -= diff;
+    await tour.save();
 
     if (bookingDate && new Date(bookingDate) < new Date()) {
       return res.status(400).json({
@@ -207,10 +222,7 @@ const updateBooking = async (req, res) => {
     booking.participants = newParticipants;
     booking.totalAmount = tour.price * newParticipants;
 
-    tour.availableSlots -= newParticipants;
-
     await booking.save();
-    await tour.save();
 
     sendEmail({
       to: req.user.email,
@@ -244,9 +256,7 @@ const cancelBooking = async (req, res) => {
     const booking = await Booking.findOne({
       _id: req.params.id,
       user: req.user._id,
-    })
-      .populate("tour")
-      .populate("user");
+    }).populate("tour");
 
     if (!booking) {
       return res.status(404).json({
@@ -270,13 +280,12 @@ const cancelBooking = async (req, res) => {
     }
 
     const hoursLeft =
-      (new Date(booking.bookingDate) - new Date()) /
-      (1000 * 60 * 60);
+      (new Date(booking.bookingDate) - Date.now()) / (1000 * 60 * 60);
 
     if (hoursLeft < 24) {
       return res.status(400).json({
         success: false,
-        message: "Cannot cancel within 24 hours",
+        message: "Cannot cancel within 24 hours of booking date",
       });
     }
 
@@ -288,12 +297,12 @@ const cancelBooking = async (req, res) => {
     });
 
     sendEmail({
-      to: booking.user.email,
+      to: req.user.email,
       ...bookingCancelledEmail(booking.tour, booking),
     }).catch((err) => console.error("Email error:", err.message));
 
     await createNotification(
-      booking.user._id,
+      req.user._id,
       "Booking Cancelled ❌",
       "Your booking has been cancelled successfully."
     );
@@ -350,7 +359,7 @@ const markCODPaid = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "COD marked as paid",
+      message: "Payment marked as paid",
       booking,
     });
   } catch (error) {
@@ -396,7 +405,7 @@ const completeBooking = async (req, res) => {
 
     sendEmail({
       to: booking.user.email,
-      ...bookingCompletedEmail(booking.tour),
+      ...bookingCompletedEmail(booking.tour, booking),
     }).catch((err) => console.error("Email error:", err.message));
 
     await createNotification(
@@ -407,7 +416,7 @@ const completeBooking = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Booking marked as completed",
+      message: "Booking completed successfully",
       booking,
     });
   } catch (error) {

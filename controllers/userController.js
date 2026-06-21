@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 
 /* -----------------------------
-   Get All Users (excludes soft-deleted by default)
+   Get All Users
 ------------------------------*/
 const getAllUsers = async (req, res) => {
   try {
@@ -15,13 +15,14 @@ const getAllUsers = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Users fetched successfully",
       count: users.length,
       users,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to fetch users",
     });
   }
 };
@@ -58,15 +59,17 @@ const softDeleteUser = async (req, res) => {
     user.deletedAt = new Date();
     await user.save();
 
+    const safeUser = await User.findById(user._id).select("-password");
+
     return res.status(200).json({
       success: true,
       message: "User deactivated successfully",
-      user,
+      user: safeUser,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to deactivate user",
     });
   }
 };
@@ -96,15 +99,17 @@ const restoreUser = async (req, res) => {
     user.deletedAt = null;
     await user.save();
 
+    const safeUser = await User.findById(user._id).select("-password");
+
     return res.status(200).json({
       success: true,
       message: "User restored successfully",
-      user,
+      user: safeUser,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to restore user",
     });
   }
 };

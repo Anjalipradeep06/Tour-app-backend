@@ -14,7 +14,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import destinationRoutes from "./routes/destinationRoutes.js"
 import adminUserRoutes from "./routes/adminUserRoutes.js";
-
+import availabilityRoutes from "./routes/availabilityRoutes.js";
 
 const app = express();
 
@@ -40,6 +40,7 @@ app.use(
   "/api/destinations",
   destinationRoutes
 );
+app.use("/api/availability", availabilityRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 // Health Check
 app.get("/", (req, res) => {

@@ -1,58 +1,49 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-const protect = async (
-  req,
-  res,
-  next
-) => {
-  let token;
+const protect = async (req, res, next) => {
+  try {
+    let token;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith(
-      "Bearer"
-    )
-  ) {
-    token =
-      req.headers.authorization.split(
-        " "
-      )[1];
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
 
-    try {
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
-
-      req.user = await User.findById(
-        decoded.id
-      ).select("-password");
-
-      if (!req.user) {
-        return res.status(401).json({
-          message: "Not authorized",
-        });
-      }
-
-      if (req.user.isDeleted) {
-        return res.status(401).json({
-          message:
-            "This account has been deactivated",
-        });
-      }
-
-      next();
-    } catch (error) {
+    if (!token) {
       return res.status(401).json({
-        message: "Not authorized",
+        success: false,
+        message: "No token found. Authorization denied.",
       });
     }
-  }
 
-  if (!token) {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Not authorized.",
+      });
+    }
+
+    if (user.isDeleted) {
+      return res.status(401).json({
+        success: false,
+        message: "This account has been deactivated.",
+      });
+    }
+
+    req.user = user;
+
+    next();
+  } catch (error) {
     return res.status(401).json({
-      message: "No token found",
+      success: false,
+      message: "Invalid or expired token. Please login again.",
     });
   }
 };
