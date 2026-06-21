@@ -28,6 +28,12 @@ app.use(cookieParser());
 app.use(express.static(path.join(process.cwd(), "public")));
 
 // Routes
+app.get("/api/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Backend is running",
+  });
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/tours", tourRoutes);
 app.use("/api/bookings", bookingRoutes);

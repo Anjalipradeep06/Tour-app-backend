@@ -68,7 +68,7 @@ const createBooking = async (req, res) => {
       paymentMethod,
       totalAmount,
       status: "pending",
-      paymentStatus: "pending",
+      paymentStatus: "unpaid",
     });
 
     // Email (non-blocking)
