@@ -3,7 +3,7 @@ import Booking from "../models/Booking.js";
 import { sendEmail } from "../services/emailService.js";
 
 /* ----------------------------------------
-   Safe Stripe initialization (lazy load)
+   Safe Stripe initialization
 -----------------------------------------*/
 const getStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -54,9 +54,6 @@ const createStripeSession = async (req, res) => {
     const successUrl = `${clientUrl}/payment-success/${booking._id}`;
     const cancelUrl = `${clientUrl}/payment-cancel`;
 
-    console.log("Success URL:", successUrl);
-    console.log("Cancel URL:", cancelUrl);
-
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
 
@@ -88,8 +85,6 @@ const createStripeSession = async (req, res) => {
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
-
-    console.log("Stripe Checkout URL:", session.url);
 
     return res.status(200).json({
       success: true,
@@ -129,10 +124,12 @@ const verifyStripePayment = async (req, res) => {
       });
     }
 
+    // IMPORTANT: Return success if already paid
     if (booking.paymentStatus === "paid") {
-      return res.status(400).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "Payment already verified",
+        booking,
       });
     }
 
