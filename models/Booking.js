@@ -35,7 +35,12 @@ const bookingSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled", "completed"],
+      enum: [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed",
+      ],
       default: "pending",
       index: true,
     },
@@ -54,7 +59,12 @@ const bookingSchema = new mongoose.Schema(
 
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid", "failed", "refunded"],
+      enum: [
+        "unpaid",
+        "paid",
+        "failed",
+        "refunded",
+      ],
       default: "unpaid",
       index: true,
     },
@@ -65,9 +75,19 @@ const bookingSchema = new mongoose.Schema(
 );
 
 /* -----------------------------
-   Indexes for faster queries
+   Compound indexes
 ------------------------------*/
+
+// User bookings page
 bookingSchema.index({ user: 1, createdAt: -1 });
+
+// Tour availability queries
 bookingSchema.index({ tour: 1, status: 1 });
 
-export default mongoose.model("Booking", bookingSchema);
+// Admin dashboard sorting
+bookingSchema.index({ createdAt: -1 });
+
+export default mongoose.model(
+  "Booking",
+  bookingSchema
+);

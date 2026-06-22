@@ -87,18 +87,17 @@ const getAllBookings = async (req, res) => {
     const bookings = await Booking.find()
       .populate("user", "name email")
       .populate("tour", "title price")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Bookings fetched successfully",
-      count: bookings.length,
       bookings,
     });
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch bookings",
     });
@@ -139,7 +138,7 @@ const getPendingBookings = async (req, res) => {
 const approveBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate("user")
+      .populate("user", "name email")
       .populate("tour");
 
     if (!booking) {
@@ -152,57 +151,59 @@ const approveBooking = async (req, res) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message: "Only pending bookings can be approved",
+        message:
+          "Only pending bookings can be approved",
       });
     }
 
-    const tour = await Tour.findById(booking.tour._id);
-
-    if (!tour) {
-      return res.status(404).json({
-        success: false,
-        message: "Tour not found",
-      });
-    }
-
-    if (tour.availableSlots < booking.participants) {
+    if (
+      booking.tour.availableSlots <
+      booking.participants
+    ) {
       return res.status(400).json({
         success: false,
         message: "Not enough slots available",
       });
     }
 
-    tour.availableSlots -= booking.participants;
-    await tour.save();
+    booking.tour.availableSlots -=
+      booking.participants;
 
     booking.status = "confirmed";
     booking.approvedBy = req.user._id;
     booking.approvedAt = new Date();
 
-    await booking.save();
+    await Promise.all([
+      booking.save(),
+      booking.tour.save(),
+    ]);
 
-    // Email should not stop booking approval
-    try {
-      await sendEmail({
-        to: booking.user.email,
-        subject: "Booking Approved 🎉",
-        text: `Your booking for "${booking.tour.title}" has been approved.`,
-      });
-    } catch (emailError) {
-      console.error("Email Error:", emailError.message);
-    }
-
+    // Respond immediately
     res.status(200).json({
       success: true,
       message: "Booking approved successfully",
       booking,
     });
+
+    // Send email in background
+    sendEmail({
+      to: booking.user.email,
+      subject: "Booking Approved 🎉",
+      text: `Your booking for "${booking.tour.title}" has been approved.`,
+    }).catch((error) => {
+      console.error(
+        "Email Error:",
+        error.message
+      );
+    });
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to approve booking",
+      message:
+        error.message ||
+        "Failed to approve booking",
     });
   }
 };
@@ -212,9 +213,11 @@ const approveBooking = async (req, res) => {
 ---------------------------------- */
 const rejectBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id)
-      .populate("user")
-      .populate("tour");
+    const booking = await Booking.findById(
+      req.params.id
+    )
+      .populate("user", "email")
+      .populate("tour", "title");
 
     if (!booking) {
       return res.status(404).json({
@@ -226,35 +229,41 @@ const rejectBooking = async (req, res) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message: "Only pending bookings can be rejected",
+        message:
+          "Only pending bookings can be rejected",
       });
     }
 
     booking.status = "cancelled";
+
     await booking.save();
 
-    // Email should not stop booking rejection
-    try {
-      await sendEmail({
-        to: booking.user.email,
-        subject: "Booking Rejected",
-        text: `Unfortunately, your booking for "${booking.tour.title}" could not be approved.`,
-      });
-    } catch (emailError) {
-      console.error("Email Error:", emailError.message);
-    }
-
+    // Respond immediately
     res.status(200).json({
       success: true,
       message: "Booking rejected successfully",
       booking,
     });
+
+    // Send email in background
+    sendEmail({
+      to: booking.user.email,
+      subject: "Booking Rejected",
+      text: `Unfortunately, your booking for "${booking.tour.title}" could not be approved.`,
+    }).catch((error) => {
+      console.error(
+        "Email Error:",
+        error.message
+      );
+    });
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to reject booking",
+      message:
+        error.message ||
+        "Failed to reject booking",
     });
   }
 };

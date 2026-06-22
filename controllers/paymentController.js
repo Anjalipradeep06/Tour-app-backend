@@ -35,7 +35,7 @@ const createStripeSession = async (req, res) => {
 
     const booking = await Booking.findById(
       req.params.bookingId
-    ).populate("tour");
+    ).populate("tour", "title");
 
     if (!booking) {
       return res.status(404).json({
@@ -50,9 +50,6 @@ const createStripeSession = async (req, res) => {
         message: "Booking is already paid",
       });
     }
-
-    const successUrl = `${clientUrl}/payment-success/${booking._id}`;
-    const cancelUrl = `${clientUrl}/payment-cancel`;
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -82,8 +79,8 @@ const createStripeSession = async (req, res) => {
         bookingId: booking._id.toString(),
       },
 
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: `${clientUrl}/payment-success/${booking._id}`,
+      cancel_url: `${clientUrl}/payment-cancel`,
     });
 
     return res.status(200).json({
@@ -92,10 +89,7 @@ const createStripeSession = async (req, res) => {
       url: session.url,
     });
   } catch (error) {
-    console.error(
-      "Stripe session error:",
-      error.message
-    );
+    console.error("Stripe session error:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -114,8 +108,8 @@ const verifyStripePayment = async (req, res) => {
     const booking = await Booking.findById(
       req.params.bookingId
     )
-      .populate("tour")
-      .populate("user");
+      .populate("tour", "title")
+      .populate("user", "email");
 
     if (!booking) {
       return res.status(404).json({
@@ -124,7 +118,7 @@ const verifyStripePayment = async (req, res) => {
       });
     }
 
-    // IMPORTANT: Return success if already paid
+    // Already paid? Return success immediately
     if (booking.paymentStatus === "paid") {
       return res.status(200).json({
         success: true,
@@ -134,36 +128,34 @@ const verifyStripePayment = async (req, res) => {
     }
 
     booking.paymentStatus = "paid";
+
     await booking.save();
 
-    try {
-      await sendEmail({
-        to: booking.user.email,
-        subject: "Payment Successful 🎉",
+    // Send response immediately
+    res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      booking,
+    });
 
-        text: `Your payment for "${booking.tour.title}" has been received successfully.
+    // Background email
+    sendEmail({
+      to: booking.user.email,
+      subject: "Payment Successful 🎉",
+
+      text: `Your payment for "${booking.tour.title}" has been received successfully.
 
 Booking Details:
 - Tour: ${booking.tour.title}
 - Booking Date: ${new Date(
-          booking.bookingDate
-        ).toLocaleDateString()}
+        booking.bookingDate
+      ).toLocaleDateString()}
 - Participants: ${booking.participants}
 - Total Amount: $${booking.totalAmount}
 
 Thank you for booking with us!`,
-      });
-    } catch (emailError) {
-      console.error(
-        "Email error:",
-        emailError.message
-      );
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment verified successfully",
-      booking,
+    }).catch((error) => {
+      console.error("Email error:", error.message);
     });
   } catch (error) {
     console.error(
