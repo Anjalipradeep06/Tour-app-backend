@@ -9,7 +9,9 @@ const getStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
 
   if (!key) {
-    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
+    throw new Error(
+      "Stripe is not configured (missing STRIPE_SECRET_KEY)"
+    );
   }
 
   return new Stripe(key);
@@ -22,9 +24,18 @@ const createStripeSession = async (req, res) => {
   try {
     const stripe = getStripe();
 
-    const booking = await Booking.findById(req.params.bookingId).populate(
-      "tour"
-    );
+    const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, "");
+
+    if (!clientUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "CLIENT_URL is not configured",
+      });
+    }
+
+    const booking = await Booking.findById(
+      req.params.bookingId
+    ).populate("tour");
 
     if (!booking) {
       return res.status(404).json({
@@ -40,28 +51,45 @@ const createStripeSession = async (req, res) => {
       });
     }
 
+    const successUrl = `${clientUrl}/payment-success/${booking._id}`;
+    const cancelUrl = `${clientUrl}/payment-cancel`;
+
+    console.log("Success URL:", successUrl);
+    console.log("Cancel URL:", cancelUrl);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
+
       line_items: [
         {
           price_data: {
             currency: "usd",
+
             product_data: {
               name: booking.tour.title,
               description: `Booking for ${booking.participants} participant(s)`,
             },
-            unit_amount: Math.round(Number(booking.totalAmount) * 100),
+
+            unit_amount: Math.round(
+              Number(booking.totalAmount) * 100
+            ),
           },
+
           quantity: 1,
         },
       ],
+
       mode: "payment",
+
       metadata: {
         bookingId: booking._id.toString(),
       },
-      success_url: `${process.env.CLIENT_URL}/payment-success/${booking._id}`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
+
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
+
+    console.log("Stripe Checkout URL:", session.url);
 
     return res.status(200).json({
       success: true,
@@ -69,11 +97,16 @@ const createStripeSession = async (req, res) => {
       url: session.url,
     });
   } catch (error) {
-    console.error("Stripe session error:", error.message);
+    console.error(
+      "Stripe session error:",
+      error.message
+    );
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to create Stripe session",
+      message:
+        error.message ||
+        "Failed to create Stripe session",
     });
   }
 };
@@ -83,7 +116,9 @@ const createStripeSession = async (req, res) => {
 -----------------------------------------*/
 const verifyStripePayment = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.bookingId)
+    const booking = await Booking.findById(
+      req.params.bookingId
+    )
       .populate("tour")
       .populate("user");
 
@@ -101,15 +136,14 @@ const verifyStripePayment = async (req, res) => {
       });
     }
 
-    // Mark as paid
     booking.paymentStatus = "paid";
     await booking.save();
 
-    // Send email (non-blocking)
     try {
       await sendEmail({
         to: booking.user.email,
         subject: "Payment Successful 🎉",
+
         text: `Your payment for "${booking.tour.title}" has been received successfully.
 
 Booking Details:
@@ -123,7 +157,10 @@ Booking Details:
 Thank you for booking with us!`,
       });
     } catch (emailError) {
-      console.error("Email error:", emailError.message);
+      console.error(
+        "Email error:",
+        emailError.message
+      );
     }
 
     return res.status(200).json({
@@ -132,13 +169,21 @@ Thank you for booking with us!`,
       booking,
     });
   } catch (error) {
-    console.error("Verify payment error:", error.message);
+    console.error(
+      "Verify payment error:",
+      error.message
+    );
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Payment verification failed",
+      message:
+        error.message ||
+        "Payment verification failed",
     });
   }
 };
 
-export { createStripeSession, verifyStripePayment };
+export {
+  createStripeSession,
+  verifyStripePayment,
+};
