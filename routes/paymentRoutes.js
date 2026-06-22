@@ -18,7 +18,6 @@ router.post(
 router.patch(
   "/verify/:bookingId",
   protect,
-  adminOnly,
   verifyStripePayment
 );
 
