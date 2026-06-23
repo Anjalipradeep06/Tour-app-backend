@@ -2,24 +2,21 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
+// ================= TOKEN =================
 const generateToken = (id) => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing in .env");
   }
 
-  return jwt.sign(
-    { id },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: "30d",
-    }
-  );
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
 };
 
+// ================= REGISTER =================
 const registerUser = async (req, res) => {
   const { name, email, password, role } = req.body;
 
-  // Required fields validation
   if (!name || !email || !password) {
     return res.status(400).json({
       success: false,
@@ -27,12 +24,10 @@ const registerUser = async (req, res) => {
     });
   }
 
-  // Password length validation
   if (password.length < 6) {
     return res.status(400).json({
       success: false,
-      message:
-        "Password must be at least 6 characters long",
+      message: "Password must be at least 6 characters long",
     });
   }
 
@@ -46,10 +41,7 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
@@ -77,6 +69,7 @@ const registerUser = async (req, res) => {
   }
 };
 
+// ================= LOGIN =================
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -134,4 +127,54 @@ const loginUser = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser };
+// ================= UPDATE PROFILE (ADDED FIX) =================
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id; // comes from auth middleware
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // update fields safely
+    if (req.body.name) user.name = req.body.name;
+    if (req.body.email) user.email = req.body.email;
+
+    await user.save();
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("UPDATE PROFILE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= EXPORTS =================
+export {
+  registerUser,
+  loginUser,
+  updateProfile,
+};
