@@ -9,7 +9,8 @@ const createDestination = async (req, res) => {
     const destination = await Destination.create({
       ...req.body,
       bannerImage: req.files?.bannerImage?.[0]?.path || "",
-      galleryImages: req.files?.galleryImages?.map((img) => img.path) || [],
+      galleryImages:
+        req.files?.galleryImages?.map((img) => img.path) || [],
     });
 
     return res.status(201).json({
@@ -26,18 +27,88 @@ const createDestination = async (req, res) => {
 };
 
 /* -----------------------------
+   Update Destination
+------------------------------*/
+const updateDestination = async (req, res) => {
+  try {
+    const destination = await Destination.findById(req.params.id);
+
+    if (!destination) {
+      return res.status(404).json({
+        success: false,
+        message: "Destination not found",
+      });
+    }
+
+    const updateData = {
+      ...req.body,
+    };
+
+    // Update banner only if a new file was uploaded
+    if (req.files?.bannerImage?.[0]) {
+      updateData.bannerImage =
+        req.files.bannerImage[0].path;
+    }
+
+    // Update gallery only if new images uploaded
+    if (req.files?.galleryImages?.length) {
+      updateData.galleryImages =
+        req.files.galleryImages.map(
+          (img) => img.path
+        );
+    }
+
+    const updatedDestination =
+      await Destination.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Destination updated successfully",
+      destination: updatedDestination,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* -----------------------------
    Get All Destinations
 ------------------------------*/
 const getAllDestinations = async (req, res) => {
   try {
-    const { search, continent, page = 1, limit = 10 } = req.query;
+    const {
+      search,
+      continent,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     let filter = {};
 
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { country: { $regex: search, $options: "i" } },
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          country: {
+            $regex: search,
+            $options: "i",
+          },
+        },
       ];
     }
 
@@ -52,7 +123,8 @@ const getAllDestinations = async (req, res) => {
       .skip(skip)
       .limit(Number(limit));
 
-    const total = await Destination.countDocuments(filter);
+    const total =
+      await Destination.countDocuments(filter);
 
     return res.status(200).json({
       success: true,
@@ -76,7 +148,8 @@ const getAllDestinations = async (req, res) => {
 ------------------------------*/
 const getFeaturedDestinations = async (req, res) => {
   try {
-    const limit = Number(req.query.limit) || 6;
+    const limit =
+      Number(req.query.limit) || 6;
 
     const destinations = await Destination.find({
       isFeatured: true,
@@ -86,7 +159,8 @@ const getFeaturedDestinations = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Featured destinations fetched successfully",
+      message:
+        "Featured destinations fetched successfully",
       destinations,
     });
   } catch (error) {
@@ -100,11 +174,15 @@ const getFeaturedDestinations = async (req, res) => {
 /* -----------------------------
    By Continent
 ------------------------------*/
-const getDestinationsByContinent = async (req, res) => {
+const getDestinationsByContinent = async (
+  req,
+  res
+) => {
   try {
-    const destinations = await Destination.find({
-      continent: req.params.continent,
-    }).sort({ createdAt: -1 });
+    const destinations =
+      await Destination.find({
+        continent: req.params.continent,
+      }).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -122,23 +200,36 @@ const getDestinationsByContinent = async (req, res) => {
 /* -----------------------------
    Popular Destinations
 ------------------------------*/
-const getPopularDestinations = async (req, res) => {
+const getPopularDestinations = async (
+  req,
+  res
+) => {
   try {
-    const query = { isPopular: true };
+    const query = {
+      isPopular: true,
+    };
 
     if (req.params.continent) {
-      query.continent = req.params.continent;
+      query.continent =
+        req.params.continent;
     }
 
-    const limit = Number(req.query.limit) || 6;
+    const limit =
+      Number(req.query.limit) || 6;
 
-    const destinations = await Destination.find(query)
-      .sort({ rating: -1, createdAt: -1 })
+    const destinations = await Destination.find(
+      query
+    )
+      .sort({
+        rating: -1,
+        createdAt: -1,
+      })
       .limit(limit);
 
     return res.status(200).json({
       success: true,
-      message: "Popular destinations fetched successfully",
+      message:
+        "Popular destinations fetched successfully",
       destinations,
     });
   } catch (error) {
@@ -152,9 +243,15 @@ const getPopularDestinations = async (req, res) => {
 /* -----------------------------
    Get Destination By ID
 ------------------------------*/
-const getDestinationById = async (req, res) => {
+const getDestinationById = async (
+  req,
+  res
+) => {
   try {
-    const destination = await Destination.findById(req.params.id);
+    const destination =
+      await Destination.findById(
+        req.params.id
+      );
 
     if (!destination) {
       return res.status(404).json({
@@ -169,7 +266,8 @@ const getDestinationById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Destination details fetched successfully",
+      message:
+        "Destination details fetched successfully",
       destination,
       tours,
     });
@@ -183,6 +281,7 @@ const getDestinationById = async (req, res) => {
 
 export {
   createDestination,
+  updateDestination,
   getAllDestinations,
   getFeaturedDestinations,
   getDestinationsByContinent,

@@ -7,7 +7,9 @@ const getAllUsers = async (req, res) => {
   try {
     const includeDeleted = req.query.includeDeleted === "true";
 
-    const filter = includeDeleted ? {} : { isDeleted: false };
+    const filter = includeDeleted
+      ? {}
+      : { isDeleted: false };
 
     const users = await User.find(filter)
       .select("-password")
@@ -22,7 +24,55 @@ const getAllUsers = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to fetch users",
+      message:
+        error.message ||
+        "Failed to fetch users",
+    });
+  }
+};
+
+/* -----------------------------
+   Update Profile
+------------------------------*/
+const updateProfile = async (
+  req,
+  res
+) => {
+  try {
+    const { name } = req.body;
+
+    const user = await User.findById(
+      req.user._id
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.name = name || user.name;
+
+    await user.save();
+
+    const updatedUser =
+      await User.findById(user._id).select(
+        "-password"
+      );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to update profile",
     });
   }
 };
@@ -30,16 +80,25 @@ const getAllUsers = async (req, res) => {
 /* -----------------------------
    Soft Delete User
 ------------------------------*/
-const softDeleteUser = async (req, res) => {
+const softDeleteUser = async (
+  req,
+  res
+) => {
   try {
-    if (req.params.id === req.user._id.toString()) {
+    if (
+      req.params.id ===
+      req.user._id.toString()
+    ) {
       return res.status(400).json({
         success: false,
-        message: "You cannot delete your own account",
+        message:
+          "You cannot delete your own account",
       });
     }
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(
+      req.params.id
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -51,25 +110,33 @@ const softDeleteUser = async (req, res) => {
     if (user.isDeleted) {
       return res.status(400).json({
         success: false,
-        message: "User is already deactivated",
+        message:
+          "User is already deactivated",
       });
     }
 
     user.isDeleted = true;
     user.deletedAt = new Date();
+
     await user.save();
 
-    const safeUser = await User.findById(user._id).select("-password");
+    const safeUser =
+      await User.findById(user._id).select(
+        "-password"
+      );
 
     return res.status(200).json({
       success: true,
-      message: "User deactivated successfully",
+      message:
+        "User deactivated successfully",
       user: safeUser,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to deactivate user",
+      message:
+        error.message ||
+        "Failed to deactivate user",
     });
   }
 };
@@ -77,9 +144,14 @@ const softDeleteUser = async (req, res) => {
 /* -----------------------------
    Restore User
 ------------------------------*/
-const restoreUser = async (req, res) => {
+const restoreUser = async (
+  req,
+  res
+) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(
+      req.params.id
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -91,27 +163,40 @@ const restoreUser = async (req, res) => {
     if (!user.isDeleted) {
       return res.status(400).json({
         success: false,
-        message: "User is not deactivated",
+        message:
+          "User is not deactivated",
       });
     }
 
     user.isDeleted = false;
     user.deletedAt = null;
+
     await user.save();
 
-    const safeUser = await User.findById(user._id).select("-password");
+    const safeUser =
+      await User.findById(user._id).select(
+        "-password"
+      );
 
     return res.status(200).json({
       success: true,
-      message: "User restored successfully",
+      message:
+        "User restored successfully",
       user: safeUser,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to restore user",
+      message:
+        error.message ||
+        "Failed to restore user",
     });
   }
 };
 
-export { getAllUsers, softDeleteUser, restoreUser };
+export {
+  getAllUsers,
+  updateProfile,
+  softDeleteUser,
+  restoreUser,
+};
