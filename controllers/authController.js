@@ -19,10 +19,20 @@ const generateToken = (id) => {
 const registerUser = async (req, res) => {
   const { name, email, password, role } = req.body;
 
+  // Required fields validation
   if (!name || !email || !password) {
     return res.status(400).json({
       success: false,
       message: "Name, email and password are required",
+    });
+  }
+
+  // Password length validation
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Password must be at least 6 characters long",
     });
   }
 
