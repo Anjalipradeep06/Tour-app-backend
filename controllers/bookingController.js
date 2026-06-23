@@ -103,20 +103,35 @@ const createBooking = async (req, res) => {
 ------------------------------*/
 const getUserBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({
-      user: req.user._id,
-    })
-      .populate({
-        path: "tour",
-        populate: { path: "destination" },
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const [bookings, totalBookings] = await Promise.all([
+      Booking.find({
+        user: req.user._id,
       })
-      .sort({ createdAt: -1 });
+        .populate({
+          path: "tour",
+          populate: { path: "destination" },
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Booking.countDocuments({
+        user: req.user._id,
+      }),
+    ]);
 
     return res.status(200).json({
       success: true,
       message: "User bookings fetched successfully",
-      count: bookings.length,
       bookings,
+      currentPage: page,
+      totalPages: Math.ceil(totalBookings / limit),
+      totalBookings,
     });
   } catch (error) {
     return res.status(500).json({

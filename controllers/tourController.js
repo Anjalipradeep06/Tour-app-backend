@@ -1,16 +1,14 @@
 import Tour from "../models/Tour.js";
 import Destination from "../models/Destination.js";
 
-/* -----------------------------
-   Create Tour
-------------------------------*/
+/* ==============================
+   CREATE TOUR
+============================== */
 export const createTour = async (req, res) => {
   try {
     const tour = await Tour.create(req.body);
 
-    const populatedTour = await Tour.findById(
-      tour._id
-    ).populate(
+    const populatedTour = await Tour.findById(tour._id).populate(
       "destination",
       "name country continent bannerImage galleryImages rating"
     );
@@ -23,15 +21,14 @@ export const createTour = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to create tour",
+      message: error.message || "Failed to create tour",
     });
   }
 };
 
-/* -----------------------------
-   Get All Tours
-------------------------------*/
+/* ==============================
+   GET ALL TOURS (WITH PAGINATION)
+============================== */
 export const getAllTours = async (req, res) => {
   try {
     const {
@@ -51,67 +48,41 @@ export const getAllTours = async (req, res) => {
 
     const filter = {};
 
-    // Search
+    // ---------------- SEARCH ----------------
     if (search) {
       filter.$or = [
-        {
-          title: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          description: {
-            $regex: search,
-            $options: "i",
-          },
-        },
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ];
     }
 
-    // Destination filters
+    // ---------------- DESTINATION FILTER ----------------
     if (country || continent) {
       const destinationFilter = {};
 
-      if (country) {
-        destinationFilter.country = country;
-      }
+      if (country) destinationFilter.country = country;
+      if (continent) destinationFilter.continent = continent;
 
-      if (continent) {
-        destinationFilter.continent = continent;
-      }
-
-      const destinations =
-        await Destination.find(
-          destinationFilter
-        ).select("_id");
+      const destinations = await Destination.find(destinationFilter).select("_id");
 
       filter.destination = {
         $in: destinations.map((d) => d._id),
       };
     }
 
-    // Price filter
+    // ---------------- PRICE FILTER ----------------
     if (minPrice || maxPrice) {
       filter.price = {};
-
-      if (minPrice) {
-        filter.price.$gte = Number(minPrice);
-      }
-
-      if (maxPrice) {
-        filter.price.$lte = Number(maxPrice);
-      }
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
 
-    // Duration filter
+    // ---------------- DURATION ----------------
     if (duration) {
-      filter.duration = {
-        $lte: Number(duration),
-      };
+      filter.duration = { $lte: Number(duration) };
     }
 
-    // Activity filter
+    // ---------------- ACTIVITY ----------------
     if (activity) {
       filter.activities = {
         $regex: activity,
@@ -119,97 +90,86 @@ export const getAllTours = async (req, res) => {
       };
     }
 
-    // Rating filter
+    // ---------------- RATING ----------------
     if (minRating) {
       filter.averageRating = {
         $gte: Number(minRating),
       };
     }
 
-    // Start date filter
+    // ---------------- START DATE ----------------
     if (startDate) {
       filter.startDates = {
-        $elemMatch: {
-          $gte: new Date(startDate),
-        },
+        $elemMatch: { $gte: new Date(startDate) },
       };
     }
 
-    // Sorting
-    let sortOption = {
-      createdAt: -1,
-    };
+    // ---------------- SORT ----------------
+    let sortOption = { createdAt: -1 };
 
     switch (sort) {
       case "price_asc":
         sortOption = { price: 1 };
         break;
-
       case "price_desc":
         sortOption = { price: -1 };
         break;
-
       case "rating_desc":
-        sortOption = {
-          averageRating: -1,
-        };
+        sortOption = { averageRating: -1 };
         break;
-
-      case "newest":
       default:
-        sortOption = {
-          createdAt: -1,
-        };
+        sortOption = { createdAt: -1 };
     }
 
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
+    // ---------------- PAGINATION ----------------
+    const pageNumber = Math.max(1, parseInt(page) || 1);
+    const limitNumber = Math.max(1, parseInt(limit) || 12);
+    const skip = (pageNumber - 1) * limitNumber;
 
-    const skip =
-      (pageNumber - 1) * limitNumber;
+    // ---------------- DB CALLS ----------------
+    const [tours, total] = await Promise.all([
+      Tour.find(filter)
+        .populate(
+          "destination",
+          "name country continent bannerImage galleryImages rating"
+        )
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNumber),
 
-    const tours = await Tour.find(filter)
-      .populate(
-        "destination",
-        "name country continent bannerImage galleryImages rating"
-      )
-      .sort(sortOption)
-      .skip(skip)
-      .limit(limitNumber);
+      Tour.countDocuments(filter),
+    ]);
 
-    const total = await Tour.countDocuments(
-      filter
-    );
+    const totalPages = Math.ceil(total / limitNumber);
 
     return res.status(200).json({
       success: true,
       message: "Tours fetched successfully",
       tours,
-      total,
-      page: pageNumber,
-      pages: Math.ceil(total / limitNumber),
-      count: tours.length,
+
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages,
+        hasNextPage: pageNumber < totalPages,
+        hasPrevPage: pageNumber > 1,
+      },
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to fetch tours",
+      message: error.message || "Failed to fetch tours",
     });
   }
 };
 
-/* -----------------------------
-   Get Tour By ID
-------------------------------*/
-export const getTourById = async (
-  req,
-  res
-) => {
+/* ==============================
+   GET TOUR BY ID
+============================== */
+export const getTourById = async (req, res) => {
   try {
-    const tour = await Tour.findById(
-      req.params.id
-    ).populate(
+    const tour = await Tour.findById(req.params.id).populate(
       "destination",
       "name country continent bannerImage galleryImages rating"
     );
@@ -229,32 +189,23 @@ export const getTourById = async (
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to fetch tour",
+      message: error.message || "Failed to fetch tour",
     });
   }
 };
 
-/* -----------------------------
-   Update Tour
-------------------------------*/
-export const updateTour = async (
-  req,
-  res
-) => {
+/* ==============================
+   UPDATE TOUR
+============================== */
+export const updateTour = async (req, res) => {
   try {
-    const tour =
-      await Tour.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        {
-          new: true,
-          runValidators: true,
-        }
-      ).populate(
-        "destination",
-        "name country continent bannerImage galleryImages rating"
-      );
+    const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate(
+      "destination",
+      "name country continent bannerImage galleryImages rating"
+    );
 
     if (!tour) {
       return res.status(404).json({
@@ -271,24 +222,17 @@ export const updateTour = async (
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to update tour",
+      message: error.message || "Failed to update tour",
     });
   }
 };
 
-/* -----------------------------
-   Delete Tour
-------------------------------*/
-export const deleteTour = async (
-  req,
-  res
-) => {
+/* ==============================
+   DELETE TOUR
+============================== */
+export const deleteTour = async (req, res) => {
   try {
-    const tour =
-      await Tour.findByIdAndDelete(
-        req.params.id
-      );
+    const tour = await Tour.findByIdAndDelete(req.params.id);
 
     if (!tour) {
       return res.status(404).json({
@@ -304,8 +248,7 @@ export const deleteTour = async (
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to delete tour",
+      message: error.message || "Failed to delete tour",
     });
   }
 };

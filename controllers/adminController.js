@@ -22,21 +22,10 @@ const getDashboardStats = async (req, res) => {
       Tour.countDocuments(),
       Booking.countDocuments(),
 
-      Booking.countDocuments({
-        status: "pending",
-      }),
-
-      Booking.countDocuments({
-        status: "confirmed",
-      }),
-
-      Booking.countDocuments({
-        status: "completed",
-      }),
-
-      Booking.countDocuments({
-        status: "cancelled",
-      }),
+      Booking.countDocuments({ status: "pending" }),
+      Booking.countDocuments({ status: "confirmed" }),
+      Booking.countDocuments({ status: "completed" }),
+      Booking.countDocuments({ status: "cancelled" }),
 
       Booking.aggregate([
         {
@@ -47,15 +36,13 @@ const getDashboardStats = async (req, res) => {
         {
           $group: {
             _id: null,
-            totalRevenue: {
-              $sum: "$totalAmount",
-            },
+            totalRevenue: { $sum: "$totalAmount" },
           },
         },
       ]),
     ]);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Dashboard statistics fetched successfully",
       stats: {
@@ -70,33 +57,49 @@ const getDashboardStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to fetch dashboard statistics",
+      message:
+        error.message || "Failed to fetch dashboard statistics",
     });
   }
 };
 
 /* ---------------------------------
-   Get All Bookings
+   GET ALL BOOKINGS (PAGINATED)
 ---------------------------------- */
 const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
-      .populate("user", "name email")
-      .populate("tour", "title price")
-      .sort({ createdAt: -1 })
-      .lean();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const [bookings, totalBookings] = await Promise.all([
+      Booking.find()
+        .populate("user", "name email")
+        .populate("tour", "title price")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Booking.countDocuments(),
+    ]);
 
     return res.status(200).json({
       success: true,
+      message: "Bookings fetched successfully",
       bookings,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalBookings / limit),
+        totalItems: totalBookings,
+        limit,
+        hasNextPage: page < Math.ceil(totalBookings / limit),
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
-    console.error(error);
-
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch bookings",
@@ -105,27 +108,38 @@ const getAllBookings = async (req, res) => {
 };
 
 /* ---------------------------------
-   Get Pending Bookings
+   GET PENDING BOOKINGS (OPTIONAL PAGINATED)
 ---------------------------------- */
 const getPendingBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({
-      status: "pending",
-    })
-      .populate("user", "name email")
-      .populate("tour", "title price")
-      .sort({ createdAt: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    res.status(200).json({
+    const [bookings, total] = await Promise.all([
+      Booking.find({ status: "pending" })
+        .populate("user", "name email")
+        .populate("tour", "title price")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      Booking.countDocuments({ status: "pending" }),
+    ]);
+
+    return res.status(200).json({
       success: true,
       message: "Pending bookings fetched successfully",
-      count: bookings.length,
       bookings,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        limit,
+      },
     });
   } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch pending bookings",
     });
@@ -133,7 +147,7 @@ const getPendingBookings = async (req, res) => {
 };
 
 /* ---------------------------------
-   Approve Booking
+   APPROVE BOOKING
 ---------------------------------- */
 const approveBooking = async (req, res) => {
   try {
@@ -151,71 +165,44 @@ const approveBooking = async (req, res) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only pending bookings can be approved",
+        message: "Only pending bookings can be approved",
       });
     }
 
-    if (
-      booking.tour.availableSlots <
-      booking.participants
-    ) {
+    if (booking.tour.availableSlots < booking.participants) {
       return res.status(400).json({
         success: false,
         message: "Not enough slots available",
       });
     }
 
-    booking.tour.availableSlots -=
-      booking.participants;
+    booking.tour.availableSlots -= booking.participants;
 
     booking.status = "confirmed";
     booking.approvedBy = req.user._id;
     booking.approvedAt = new Date();
 
-    await Promise.all([
-      booking.save(),
-      booking.tour.save(),
-    ]);
+    await Promise.all([booking.save(), booking.tour.save()]);
 
-    // Respond immediately
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Booking approved successfully",
       booking,
     });
-
-    // Send email in background
-    sendEmail({
-      to: booking.user.email,
-      subject: "Booking Approved 🎉",
-      text: `Your booking for "${booking.tour.title}" has been approved.`,
-    }).catch((error) => {
-      console.error(
-        "Email Error:",
-        error.message
-      );
-    });
   } catch (error) {
-    console.error(error);
-
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Failed to approve booking",
+      message: error.message || "Failed to approve booking",
     });
   }
 };
 
 /* ---------------------------------
-   Reject Booking
+   REJECT BOOKING
 ---------------------------------- */
 const rejectBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(
-      req.params.id
-    )
+    const booking = await Booking.findById(req.params.id)
       .populate("user", "email")
       .populate("tour", "title");
 
@@ -229,41 +216,22 @@ const rejectBooking = async (req, res) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only pending bookings can be rejected",
+        message: "Only pending bookings can be rejected",
       });
     }
 
     booking.status = "cancelled";
-
     await booking.save();
 
-    // Respond immediately
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Booking rejected successfully",
       booking,
     });
-
-    // Send email in background
-    sendEmail({
-      to: booking.user.email,
-      subject: "Booking Rejected",
-      text: `Unfortunately, your booking for "${booking.tour.title}" could not be approved.`,
-    }).catch((error) => {
-      console.error(
-        "Email Error:",
-        error.message
-      );
-    });
   } catch (error) {
-    console.error(error);
-
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Failed to reject booking",
+      message: error.message || "Failed to reject booking",
     });
   }
 };
