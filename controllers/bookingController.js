@@ -2,6 +2,7 @@ import Booking from "../models/Booking.js";
 import Tour from "../models/Tour.js";
 import { sendEmail } from "../services/emailService.js";
 import {
+   bookingRequestedEmail,
   bookingConfirmedEmail,
   bookingUpdatedEmail,
   bookingCancelledEmail,
@@ -89,16 +90,10 @@ console.log("STEP 4");
     const emailData = bookingConfirmedEmail(tour, booking);
 
     // Non-blocking email
-    sendEmail({
-      to: req.user.email,
-      ...emailData,
-    })
-      .then(() => {
-        console.log("✅ Booking email sent");
-      })
-      .catch((err) => {
-        console.error("❌ Booking email error:", err);
-      });
+   sendEmail({
+  to: req.user.email,
+  ...bookingRequestedEmail(tour, booking),
+}).catch((err) => console.error("❌ Booking email error:", err));
 
     await createNotification(
   req.user._id,
