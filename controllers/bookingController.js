@@ -36,8 +36,11 @@ const createBooking = async (req, res) => {
         message: "Please provide all required fields",
       });
     }
+console.log("STEP 1");
 
-    const tour = await Tour.findById(tourId);
+const tour = await Tour.findById(tourId);
+
+console.log("STEP 2");
 
     if (!tour) {
       return res.status(404).json({
@@ -61,26 +64,27 @@ const createBooking = async (req, res) => {
     }
 
     // Reserve slots
-    tour.availableSlots -= participants;
-    await tour.save();
+   tour.availableSlots -= participants;
+await tour.save();
+
+console.log("STEP 3");
 
     const totalAmount = tour.price * participants;
 
-    const booking = await Booking.create({
-      user: req.user._id,
-      tour: tourId,
-      bookingDate,
-      participants,
-      paymentMethod,
-      totalAmount,
-      status: "pending",
-      paymentStatus: "unpaid",
-    });
+   const booking = await Booking.create({
+  user: req.user._id,
+  tour: tourId,
+  bookingDate,
+  participants,
+  paymentMethod,
+  totalAmount,
+  status: "pending",
+  paymentStatus: "unpaid",
+});
 
-    console.log("=== BOOKING EMAIL DEBUG ===");
-    console.log("User Email:", req.user?.email);
-    console.log("Booking ID:", booking._id);
-    console.log("Tour:", tour.title);
+console.log("STEP 4");
+
+  
 
     const emailData = bookingConfirmedEmail(tour, booking);
 
@@ -109,14 +113,15 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       booking,
     });
-  } catch (error) {
-    console.error("CREATE BOOKING ERROR:", error);
+  }catch (error) {
+  console.error("BOOKING ERROR:");
+  console.error(error);
 
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  return res.status(500).json({
+    success: false,
+    message: error.message,
+  });
+}
 };
 
 /* -----------------------------
