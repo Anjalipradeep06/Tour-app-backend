@@ -4,13 +4,15 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   console.log("sendEmail called");
   console.log("TO:", to);
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+ const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,        // STARTTLS, not SSL
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
   try {
     await transporter.verify();
