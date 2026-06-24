@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import Booking from "../models/Booking.js";
 import { sendEmail } from "../services/emailService.js";
-
+import { createNotification } from "../utils/notificationHelper.js";
 /* ----------------------------------------
    Safe Stripe initialization
 -----------------------------------------*/
@@ -130,6 +130,11 @@ const verifyStripePayment = async (req, res) => {
     booking.paymentStatus = "paid";
 
     await booking.save();
+    await createNotification(
+  booking.user._id,
+  "Payment Successful 💳",
+  `Your payment of ₹${booking.totalAmount} for ${booking.tour.title} has been received successfully.`
+);
 
     // Send response immediately
     res.status(200).json({

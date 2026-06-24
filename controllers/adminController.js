@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Tour from "../models/Tour.js";
 import Booking from "../models/Booking.js";
 import { sendEmail } from "../services/emailService.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 /* ---------------------------------
    Dashboard Statistics
@@ -181,8 +182,22 @@ const approveBooking = async (req, res) => {
     booking.status = "confirmed";
     booking.approvedBy = req.user._id;
     booking.approvedAt = new Date();
-
     await Promise.all([booking.save(), booking.tour.save()]);
+
+    await createNotification(
+      booking.user._id,
+      "Booking Confirmed ✅",
+      `Your booking for ${booking.tour.title} has been approved and confirmed.`
+    );
+    sendEmail({
+      to: booking.user.email,
+      subject: "Booking Confirmed",
+      html: `
+    <h2>Booking Confirmed 🎉</h2>
+    <p>Your booking for <b>${booking.tour.title}</b> has been approved.</p>
+    <p>We look forward to seeing you!</p>
+  `,
+    }).catch((err) => console.error("Approval email error:", err.message));
 
     return res.status(200).json({
       success: true,

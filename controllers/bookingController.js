@@ -101,12 +101,10 @@ console.log("STEP 4");
       });
 
     await createNotification(
-      req.user._id,
-      "Booking Confirmed 🎉",
-      `Your booking for ${tour.title} is confirmed on ${new Date(
-        bookingDate
-      ).toLocaleDateString()}.`
-    );
+  req.user._id,
+  "Booking Request Received 📌",
+  `Your booking request for ${tour.title} has been submitted and is awaiting admin approval.`
+);
 
     return res.status(201).json({
       success: true,
