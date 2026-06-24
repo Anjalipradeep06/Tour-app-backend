@@ -1,7 +1,9 @@
 import Stripe from "stripe";
 import Booking from "../models/Booking.js";
 import { sendEmail } from "../services/emailService.js";
+import { paymentCompletedEmail } from "../services/emailTemplates.js";
 import { createNotification } from "../utils/notificationHelper.js";
+
 /* ----------------------------------------
    Safe Stripe initialization
 -----------------------------------------*/
@@ -108,7 +110,7 @@ const verifyStripePayment = async (req, res) => {
     const booking = await Booking.findById(
       req.params.bookingId
     )
-      .populate("tour", "title")
+      .populate("tour")
       .populate("user", "email");
 
     if (!booking) {
@@ -131,10 +133,10 @@ const verifyStripePayment = async (req, res) => {
 
     await booking.save();
     await createNotification(
-  booking.user._id,
-  "Payment Successful 💳",
-  `Your payment of ₹${booking.totalAmount} for ${booking.tour.title} has been received successfully.`
-);
+      booking.user._id,
+      "Payment Successful 💳",
+      `Your payment of ₹${booking.totalAmount} for ${booking.tour.title} has been received successfully.`
+    );
 
     // Send response immediately
     res.status(200).json({
@@ -146,19 +148,7 @@ const verifyStripePayment = async (req, res) => {
     // Background email
     sendEmail({
       to: booking.user.email,
-      subject: "Payment Successful 🎉",
-
-      text: `Your payment for "${booking.tour.title}" has been received successfully.
-
-Booking Details:
-- Tour: ${booking.tour.title}
-- Booking Date: ${new Date(
-        booking.bookingDate
-      ).toLocaleDateString()}
-- Participants: ${booking.participants}
-- Total Amount: $${booking.totalAmount}
-
-Thank you for booking with us!`,
+      ...paymentCompletedEmail(booking.tour, booking),
     }).catch((error) => {
       console.error("Email error:", error.message);
     });
