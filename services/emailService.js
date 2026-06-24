@@ -1,33 +1,20 @@
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 
-export const sendEmail = async ({ to, subject, text, html }) => {
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+export const sendEmail = async ({ to, subject, html }) => {
   console.log("sendEmail called");
   console.log("TO:", to);
 
- const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,        // STARTTLS, not SSL
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
   try {
-    await transporter.verify();
-    console.log("SMTP Connected");
-
-    const info = await transporter.sendMail({
-      from: `"Tour Booking System" <${process.env.EMAIL_USER}>`,
+    await sgMail.send({
+      from: "Meridian Travel <anjalipradeep126@gmail.com>",
       to,
       subject,
-      text,
       html,
     });
-
-    console.log("Mail sent:", info.messageId);
+    console.log("Mail sent");
   } catch (error) {
-    console.error("EMAIL ERROR:", error);
+    console.error("EMAIL ERROR:", error.response?.body || error);
   }
 };
