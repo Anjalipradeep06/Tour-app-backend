@@ -1,5 +1,5 @@
 import express from "express";
-
+import { sendEmail } from "../services/emailService.js";
 import {
   createBooking,
   getUserBookings,
@@ -18,7 +18,20 @@ const router = express.Router();
 /* -------------------------
    User Routes
 -------------------------- */
+router.get("/test-email", async (req, res) => {
+  try {
+    await sendEmail({
+      to: "anjalipradeep126@gmail.com",
+      subject: "Test Email",
+      text: "Hello from Nodemailer",
+    });
 
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 // Create booking request
 router.post("/", protect, createBooking);
 
@@ -53,5 +66,6 @@ router.patch(
   adminOnly,
   completeBooking
 );
+
 
 export default router;

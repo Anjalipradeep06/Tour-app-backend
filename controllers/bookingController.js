@@ -21,6 +21,8 @@ const isModifiable = (booking) =>
 ------------------------------*/
 const createBooking = async (req, res) => {
   try {
+    console.log("CREATE BOOKING HIT");
+
     const { tourId, bookingDate, participants, paymentMethod = "cod" } =
       req.body;
 
@@ -70,13 +72,24 @@ const createBooking = async (req, res) => {
       status: "pending",
       paymentStatus: "unpaid",
     });
+  console.log("=== BOOKING EMAIL DEBUG ===");
+console.log("req.user:", req.user);
+console.log("email:", req.user?.email);
+console.log("booking:", booking._id);
+console.log("tour:", tour.title);
 
-    // Email (non-blocking)
-    sendEmail({
-      to: req.user.email,
-      ...bookingConfirmedEmail(tour, booking),
-    }).catch((err) => console.error("Email error:", err.message));
+const emailData = bookingConfirmedEmail(tour, booking);
 
+console.log("Email Data:", emailData);
+
+console.log("BEFORE SEND EMAIL");
+
+await sendEmail({
+  to: req.user.email,
+  ...emailData,
+});
+
+console.log("AFTER SEND EMAIL");
     await createNotification(
       req.user._id,
       "Booking Confirmed 🎉",
