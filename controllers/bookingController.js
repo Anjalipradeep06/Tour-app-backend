@@ -23,8 +23,12 @@ const createBooking = async (req, res) => {
   try {
     console.log("CREATE BOOKING HIT");
 
-    const { tourId, bookingDate, participants, paymentMethod = "cod" } =
-      req.body;
+    const {
+      tourId,
+      bookingDate,
+      participants,
+      paymentMethod = "cod",
+    } = req.body;
 
     if (!tourId || !bookingDate || !participants) {
       return res.status(400).json({
@@ -56,7 +60,7 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Reserve slots immediately (safer)
+    // Reserve slots
     tour.availableSlots -= participants;
     await tour.save();
 
@@ -72,24 +76,26 @@ const createBooking = async (req, res) => {
       status: "pending",
       paymentStatus: "unpaid",
     });
-  console.log("=== BOOKING EMAIL DEBUG ===");
-console.log("req.user:", req.user);
-console.log("email:", req.user?.email);
-console.log("booking:", booking._id);
-console.log("tour:", tour.title);
 
-const emailData = bookingConfirmedEmail(tour, booking);
+    console.log("=== BOOKING EMAIL DEBUG ===");
+    console.log("User Email:", req.user?.email);
+    console.log("Booking ID:", booking._id);
+    console.log("Tour:", tour.title);
 
-console.log("Email Data:", emailData);
+    const emailData = bookingConfirmedEmail(tour, booking);
 
-console.log("BEFORE SEND EMAIL");
+    // Non-blocking email
+    sendEmail({
+      to: req.user.email,
+      ...emailData,
+    })
+      .then(() => {
+        console.log("✅ Booking email sent");
+      })
+      .catch((err) => {
+        console.error("❌ Booking email error:", err);
+      });
 
-await sendEmail({
-  to: req.user.email,
-  ...emailData,
-});
-
-console.log("AFTER SEND EMAIL");
     await createNotification(
       req.user._id,
       "Booking Confirmed 🎉",
@@ -104,6 +110,8 @@ console.log("AFTER SEND EMAIL");
       booking,
     });
   } catch (error) {
+    console.error("CREATE BOOKING ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
