@@ -638,7 +638,7 @@ style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20
   <tr>
     <td align="center" style="padding:20px 30px 40px;">
 
-      <a href="${process.env.CLIENT_URL}/tours"
+      <a href="${process.env.CLIENT_URL}/search"
       style="
         display:inline-block;
         background:#2563eb;
@@ -1013,7 +1013,7 @@ style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20
   <tr>
     <td align="center" style="padding:20px 30px 40px;">
 
-      <a href="${process.env.CLIENT_URL}/tours"
+      <a href="${process.env.CLIENT_URL}/search"
       style="
         display:inline-block;
         background:#2563eb;
