@@ -30,11 +30,20 @@ export const checkAvailability = async (req, res) => {
       });
     }
 
+    // Build start/end of day from independent Date objects so we never
+    // mutate requestDate itself (setHours mutates in place, which broke
+    // the second boundary calculation previously).
+    const startOfDay = new Date(requestDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(requestDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
     const bookings = await Booking.find({
       tour: tourId,
       bookingDate: {
-        $gte: new Date(requestDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(requestDate.setHours(23, 59, 59, 999)),
+        $gte: startOfDay,
+        $lte: endOfDay,
       },
       status: { $in: ["pending", "confirmed"] },
     });
@@ -47,6 +56,13 @@ export const checkAvailability = async (req, res) => {
     const remainingSlots = tour.availableSlots - bookedSlots;
 
     const requested = Number(participants);
+
+    if (isNaN(requested) || requested < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid participants count",
+      });
+    }
 
     const isAvailable = remainingSlots >= requested;
 
