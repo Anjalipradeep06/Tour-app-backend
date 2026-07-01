@@ -21,6 +21,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://tour-app-frontend-wheat.vercel.app",
   "https://tour-app-frontend-git-main-anjalipradeep1214-6162s-projects.vercel.app",
+  "https://tour-app-next-frontend.vercel.app",
 ];
 
 // Middleware
