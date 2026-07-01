@@ -3,12 +3,12 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 // ================= TOKEN =================
-const generateToken = (id) => {
+const generateToken = (id, role) => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing in .env");
   }
 
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
 };
@@ -57,7 +57,7 @@ const registerUser = async (req, res) => {
       success: true,
       message: "User registered successfully",
       user: userResponse,
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.role),
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error);
@@ -115,7 +115,7 @@ const loginUser = async (req, res) => {
       success: true,
       message: "Logged in successfully",
       user: userResponse,
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.role),
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
